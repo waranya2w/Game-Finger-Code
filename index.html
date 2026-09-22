@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smiles That Stop The Zombies</title>
+    
+    <!-- Google Fonts: Mali -->
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Mali', 'sans-serif'] },
+                    colors: { primary: '#1e1b4b', secondary: '#4c1d95', accent: '#e11d48' },
+                    boxShadow: { 
+                        '3d': '0 6px 0 rgba(0,0,0,0.35), 0 10px 20px rgba(0,0,0,0.4)',
+                        'btn-hover': '0 8px 0 rgba(0,0,0,0.35), 0 12px 22px rgba(0,0,0,0.5)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- CSS Custom (Glassmorphism, Animations, Vertical Fractions) -->
+    <style>
+        body { font-family: 'Mali', sans-serif; overflow: hidden; background-color: #0f172a; touch-action: none; }
+        .glass { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .glass-dark { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .bubble { border-radius: 50%; box-shadow: inset -5px -5px 15px rgba(0,0,0,0.3), inset 5px 5px 15px rgba(255,255,255,0.6); }
+        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.2; }
+        .fraction span:first-child { border-bottom: 2px solid white; padding: 0 4px; }
+        .fraction span:last-child { padding: 0 4px; }
+        
+        /* เพิ่มมิติและเงาพื้นหลังให้กับปุ่มทุกประเภท */
+        .btn-pop { 
+            transition: transform 0.1s, filter 0.1s; 
+            cursor: pointer; 
+            filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5));
+        }
+        .btn-pop:hover {
+            filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
+        }
+        .btn-pop:active { 
+            transform: scale(0.95) translateY(4px); 
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); color: white; }
+            25% { transform: translateX(-5px) rotate(-3deg); color: #ef4444; }
+            75% { transform: translateX(5px) rotate(3deg); color: #ef4444; }
+        }
+        .text-shake { animation: shake 0.3s infinite; }
+        @keyframes emojiPop { 0% { opacity: 0; transform: scale(0.5) translateY(20px); } 50% { opacity: 1; transform: scale(1.5) translateY(-20px); } 100% { opacity: 0; transform: scale(1) translateY(-40px); } }
+        .emoji-feedback { animation: emojiPop 2s forwards; position: absolute; font-size: 4rem; pointer-events: none; }
+    </style>
+
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- MediaPipe Vision -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div id="inapp-warning" class="hidden fixed top-0 left-0 w-full bg-red-600 text-white p-3 text-center z-50 text-sm font-bold shadow-md">
+        ⚠️ คุณกำลังเปิดผ่านแอปพลิเคชัน (LINE/Facebook) ซึ่งอาจทำให้ไม่สามารถใช้กล้องได้ กรุณากดปุ่ม <b>"เปิดในเบราว์เซอร์" (Open in Browser)</b> มุมขวาบน (Safari/Chrome)
+    </div>
+    
+    <div id="root" class="w-screen h-screen overflow-hidden"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // --- Web Audio API Synthesizer ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        const playSound = (type) => {
+            if (window.isMutedGlobal || audioCtx.state === 'suspended') return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+            if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'tick') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(400, now);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.start(now); osc.stop(now + 0.05);
+            } else if (type === 'correct') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.setValueAtTime(554.37, now + 0.1);
+                osc.frequency.setValueAtTime(659.25, now + 0.2);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
+                osc.start(now); osc.stop(now + 0.4);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            }
+        };
+
+        // --- Game Components ---
+        const App = () => {
+            const [screenState, setScreenState] = useState('start'); // start, transition, game, end
+            const [mission, setMission] = useState(1); // 1 = FracToDec, 2 = DecToFrac
+            const [p1Icon, setP1Icon] = useState('iconperson1.png');
+            const [winner, setWinner] = useState(null);
+            const [showMissions, setShowMissions] = useState(false);
+            const [showRules, setShowRules] = useState(false);
+            const [showChars, setShowChars] = useState(false);
+            const [isMuted, setIsMuted] = useState(true); // เริ่มต้นแบบปิดเสียงเพื่อให้วิดีโอ Autoplay ได้ทันที
+            
+            const homeVideoRef = useRef(null);
+
+            // Sync สถานะเสียง
+            useEffect(() => {
+                window.isMutedGlobal = isMuted;
+                if (homeVideoRef.current) {
+                    homeVideoRef.current.muted = isMuted;
+                }
+            }, [isMuted]);
+
+            // In-App & HTTPS Check
+            useEffect(() => {
+                const ua = navigator.userAgent || navigator.vendor || window.opera;
+                if ((ua.indexOf("FBAN") > -1) || (ua.indexOf("FBAV") > -1) || (ua.indexOf("Line") > -1)) {
+                    document.getElementById('inapp-warning').classList.remove('hidden');
+                }
+                if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                    alert("กรุณาเปิดเว็บไซต์ด้วย HTTPS เพื่อให้สามารถใช้งานกล้องได้");
+                }
+                
+                const initAudio = () => { audioCtx.resume(); document.removeEventListener('click', initAudio); };
+                document.addEventListener('click', initAudio);
+                return () => document.removeEventListener('click', initAudio);
+            }, []);
+
+            const startGame = () => {
+                playSound('click');
+                setScreenState('transition');
+            };
+
+            const toggleMute = () => {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                setIsMuted(prev => !prev);
+            };
+
+            return (
+                <div className="relative w-screen h-screen overflow-hidden font-sans">
+                    {/* Audio Toggle */}
+                    <button onClick={toggleMute} className="absolute top-4 right-4 z-50 glass text-white p-3 rounded-full btn-pop shadow-3d w-12 h-12 flex items-center justify-center text-xl">
+                        {isMuted ? '🔇' : '🔊'}
+                    </button>
+
+                    {/* Start Screen */}
+                    {screenState === 'start' && (
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-10 w-full h-full">
+                            <video 
+                                ref={homeVideoRef}
+                                src="homepage.mp4" 
+                                autoPlay 
+                                loop 
+                                muted={isMuted} 
+                                playsInline 
+                                className="absolute inset-0 w-full h-auto object-cover -z-10"
+                            ></video>
+                            
+                            {/* Main UI */}
+                            <div className="flex justify-center gap-4 w-full px-4 mb-4">
+                                <img src="manubutton.png" onClick={() => {playSound('click'); setShowMissions(true);}} className="w-1/4 max-w-[150px] object-contain btn-pop rounded-2xl" alt="Mission" />
+                                <img src="startbutton.png" onClick={startGame} className="w-1/3 max-w-[200px] object-contain btn-pop rounded-3xl" alt="Start Game" />
+                                <img src="howtoplaybutton.png" onClick={() => {playSound('click'); setShowRules(true);}} className="w-1/4 max-w-[150px] object-contain btn-pop rounded-2xl" alt="How to Play" />
+                                <img src="person.png" onClick={() => {playSound('click'); setShowChars(true);}} className="w-1/5 max-w-[100px] object-contain btn-pop rounded-2xl" alt="Character" />
+                            </div>
+
+                            {/* Popups */}
+                            {showMissions && (
+                                <div className="absolute inset-0 glass-dark z-50 flex items-center justify-center p-4">
+                                    <div className="bg-gradient-to-br from-indigo-500 to-purple-700 p-6 rounded-3xl border-4 border-white shadow-3d text-white text-center w-full max-w-md bubble">
+                                        <h2 className="text-2xl font-bold mb-6">เลือกภารกิจ</h2>
+                                        <button onClick={() => {setMission(1); setShowMissions(false); playSound('click');}} className={`w-full py-4 mb-4 rounded-2xl font-bold text-lg shadow-3d btn-pop ${mission===1 ? 'bg-green-500' : 'bg-blue-500'}`}>ภารกิจที่ 1: เศษส่วน -> ทศนิยม</button>
+                                        <button onClick={() => {setMission(2); setShowMissions(false); playSound('click');}} className={`w-full py-4 mb-4 rounded-2xl font-bold text-lg shadow-3d btn-pop ${mission===2 ? 'bg-green-500' : 'bg-blue-500'}`}>ภารกิจที่ 2: ทศนิยม -> เศษส่วน</button>
+                                        <button onClick={() => {setShowMissions(false); playSound('click');}} className="px-8 py-2 bg-gray-400 rounded-xl mt-2 font-bold shadow-3d btn-pop">ตกลง</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {showChars && (
+                                <div className="absolute inset-0 glass-dark z-50 flex items-center justify-center p-4">
+                                    <div className="bg-gradient-to-br from-pink-500 to-rose-700 p-6 rounded-3xl border-4 border-white shadow-3d text-white text-center w-full max-w-md bubble">
+                                        <h2 className="text-2xl font-bold mb-4">เลือกตัวละคร ผู้ท้าทาย</h2>
+                                        <div className="flex flex-wrap justify-center gap-4 mb-6">
+                                            {['iconperson1.png', 'iconperson2.png', 'iconperson3.png', 'iconperson4.png', 'iconperson5.png'].map(img => (
+                                                <img key={img} src={img} onClick={() => setP1Icon(img)} className={`w-20 h-20 rounded-full cursor-pointer btn-pop object-cover border-4 ${p1Icon === img ? 'border-yellow-400 shadow-[0_0_15px_yellow]' : 'border-transparent'}`} alt="char" />
+                                            ))}
+                                        </div>
+                                        <button onClick={() => {setShowChars(false); playSound('click');}} className="px-8 py-2 bg-green-500 rounded-xl font-bold shadow-3d btn-pop">ตกลง</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {showRules && (
+                                <div className="absolute inset-0 glass-dark z-50 flex items-center justify-center p-4">
+                                    <div className="bg-gradient-to-br from-cyan-500 to-blue-700 p-6 rounded-3xl border-4 border-white shadow-3d text-white text-center w-full max-w-md bubble">
+                                        <h2 className="text-2xl font-bold mb-4">วิธีเล่น</h2>
+                                        <ul className="text-left text-lg list-disc pl-5 space-y-2 mb-6">
+                                            <li>เล่นพร้อมกัน 2 คน ผ่านกล้อง (ซ้าย-ขวา)</li>
+                                            <li>ตอบคำถามภายใน 10 วินาที</li>
+                                            <li><b>ยิ้ม (Smile)</b> เพื่อเลือกข้อ A</li>
+                                            <li><b>อ้าปาก (Open Mouth)</b> เพื่อเลือกข้อ B</li>
+                                            <li><b>ทำปากจู๋ (Pucker)</b> เพื่อเลือกข้อ C</li>
+                                            <li>ใครตอบถูกถึงระดับ 6 ก่อนชนะ!</li>
+                                        </ul>
+                                        <button onClick={() => {setShowRules(false); playSound('click');}} className="px-8 py-2 bg-yellow-500 rounded-xl font-bold shadow-3d btn-pop text-black">ตกลง</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Transition Video - Full Screen */}
+                    {screenState === 'transition' && (
+                        <video src="gotoplay.mp4" autoPlay muted={isMuted} playsInline onEnded={() => setScreenState('game')} className="absolute inset-0 w-full h-full object-cover z-20"></video>
+                    )}
+
+                    {/* Game Screen - Full Screen */}
+                    {screenState === 'game' && (
+                        <GameEngine mission={mission} p1Icon={p1Icon} onEnd={(winSide) => { setWinner(winSide); setScreenState('end'); }} />
+                    )}
+
+                    {/* End Screen - Full Screen */}
+                    {screenState === 'end' && (
+                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center w-full h-full">
+                            <video src="endpage.mp4" autoPlay loop muted={isMuted} playsInline className="absolute inset-0 w-full h-auto object-cover -z-10"></video>
+                            
+                            <div className="glass p-8 rounded-3xl text-center border-4 border-yellow-400 shadow-3d mb-10 bubble bg-black/50">
+                                <h1 className="text-5xl font-bold text-yellow-400 mb-4 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">จบเกม!</h1>
+                                <h2 className="text-3xl text-white font-bold mb-6">
+                                    ผู้ชนะคือ: {winner === 'left' ? 'แก๊งยิ้มสยบ' : 'Player 2 (Zombies)'} 🎉
+                                </h2>
+                            </div>
+
+                            {/* ปุ่มหน้าจบเกมพร้อมเงามิติสะดุดตา */}
+                            <div className="flex gap-8">
+                                <img src="homebutton.png" onClick={() => {playSound('click'); setScreenState('start');}} className="w-64 max-w-[40vw] object-contain btn-pop rounded-3xl" alt="Home" />
+                                <img src="playagainbutton.png" onClick={() => {playSound('click'); setScreenState('transition');}} className="w-64 max-w-[40vw] object-contain btn-pop rounded-3xl" alt="Play Again" />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- Game Engine & MediaPipe Logic ---
+        const GameEngine = ({ mission, p1Icon, onEnd }) => {
+            const videoRef = useRef(null);
+            const [facingMode, setFacingMode] = useState('environment');
+            const [p1Score, setP1Score] = useState(0);
+            const [p2Score, setP2Score] = useState(0);
+            const [question, setQuestion] = useState(null);
+            const [timeLeft, setTimeLeft] = useState(10);
+            const [feedbackLeft, setFeedbackLeft] = useState(null);
+            const [feedbackRight, setFeedbackRight] = useState(null);
+            const [isWaitingNext, setIsWaitingNext] = useState(false); // สถานะหน่วงเวลา 2 วินาที
+            
+            const timerRef = useRef(null);
+            const hasAnsweredLeft = useRef(false);
+            const hasAnsweredRight = useRef(false);
+
+            // Question Generator
+            const generateQuestion = useCallback(() => {
+                hasAnsweredLeft.current = false;
+                hasAnsweredRight.current = false;
+                setIsWaitingNext(false);
+                let qText, choices;
+                
+                if (mission === 1) { // Frac -> Dec
+                    const denoms = [10, 100, 1000];
+                    const denom = denoms[Math.floor(Math.random() * denoms.length)];
+                    const num = Math.floor(Math.random() * (denom * 2)) + 1; // e.g., 1 to 1999
+                    const ans = (num / denom).toString();
+                    qText = <div className="fraction text-4xl"><span>{num}</span><span>{denom}</span></div>;
+                    
+                    let wrong1 = ((num + 1) / denom).toString();
+                    let wrong2 = (num / (denom === 10 ? 100 : denom / 10)).toString();
+                    if(wrong1 === ans) wrong1 = ((num + 2) / denom).toString();
+                    if(wrong2 === ans) wrong2 = ((num + 5) / denom).toString();
+
+                    const options = [ans, wrong1, wrong2].sort(() => Math.random() - 0.5);
+                    choices = [
+                        { label: 'A (ยิ้ม)', val: options[0], isCorrect: options[0] === ans },
+                        { label: 'B (อ้าปาก)', val: options[1], isCorrect: options[1] === ans },
+                        { label: 'C (ปากจู๋)', val: options[2], isCorrect: options[2] === ans }
+                    ];
+                } else { // Dec -> Frac
+                    const places = Math.floor(Math.random() * 3) + 1;
+                    const num = Math.floor(Math.random() * 999) + 1;
+                    const dec = (num / Math.pow(10, places)).toFixed(places);
+                    qText = <span className="text-5xl">{dec}</span>;
+                    
+                    const ansHTML = <div className="fraction"><span>{num}</span><span>{Math.pow(10, places)}</span></div>;
+                    const wrong1 = <div className="fraction"><span>{num}</span><span>{Math.pow(10, places === 1 ? 2 : places - 1)}</span></div>;
+                    const wrong2 = <div className="fraction"><span>{num + 1}</span><span>{Math.pow(10, places)}</span></div>;
+                    
+                    const options = [{v: ansHTML, c: true}, {v: wrong1, c: false}, {v: wrong2, c: false}].sort(() => Math.random() - 0.5);
+                    choices = [
+                        { label: 'A (ยิ้ม)', val: options[0].v, isCorrect: options[0].c },
+                        { label: 'B (อ้าปาก)', val: options[1].v, isCorrect: options[1].c },
+                        { label: 'C (ปากจู๋)', val: options[2].v, isCorrect: options[2].c }
+                    ];
+                }
+                setQuestion({ q: qText, choices });
+                setTimeLeft(10);
+            }, [mission]);
+
+            // Timer Logic พร้อมการรอ 2 วินาทีเมื่อหมดเวลา
+            useEffect(() => {
+                timerRef.current = setInterval(() => {
+                    setTimeLeft((prev) => {
+                        if (isWaitingNext) return prev; // หยุดนับถอยหลังขณะรอหน่วงเวลา 2 วินาที
+                        if (prev <= 1) { 
+                            playSound('wrong'); 
+                            setIsWaitingNext(true);
+                            // หน่วงเวลา 2 วินาทีก่อนเปลี่ยนข้อ
+                            setTimeout(() => {
+                                generateQuestion();
+                            }, 2000); 
+                            return 0; 
+                        }
+                        playSound('tick');
+                        return prev - 1;
+                    });
+                }, 1000);
+                return () => clearInterval(timerRef.current);
+            }, [generateQuestion, isWaitingNext]);
+
+            // Win Check
+            useEffect(() => {
+                if (p1Score >= 6) onEnd('left');
+                if (p2Score >= 6) onEnd('right');
+            }, [p1Score, p2Score, onEnd]);
+
+            // Start Camera (เต็มจอ)
+            const startCamera = async () => {
+                if (videoRef.current && videoRef.current.srcObject) {
+                    videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+                }
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        videoRef.current.play();
+                    }
+                } catch (err) {
+                    alert("กรุณาอนุญาตการเข้าถึงกล้องใน Browser Settings เพื่อเล่นเกม");
+                }
+            };
+
+            useEffect(() => { startCamera(); generateQuestion(); }, [facingMode]);
+
+            // --- AI Logic Placeholder ---
+            useEffect(() => {
+                const gameLoop = setInterval(() => {
+                }, 100);
+                return () => clearInterval(gameLoop);
+            }, [question]);
+
+            // ฟังก์ชันรับคำตอบ (หน่วงเวลา 2 วินาที ก่อนเปลี่ยนข้อถัดไป)
+            const handleAnswer = (side, choiceIdx) => {
+                if (!question || isWaitingNext) return;
+                const isLeft = side === 'left';
+                if ((isLeft && hasAnsweredLeft.current) || (!isLeft && hasAnsweredRight.current)) return;
+                
+                if (isLeft) hasAnsweredLeft.current = true; else hasAnsweredRight.current = true;
+
+                const isCorrect = question.choices[choiceIdx].isCorrect;
+                
+                if (isCorrect) {
+                    playSound('correct');
+                    if (isLeft) { setP1Score(p => Math.min(6, p + 1)); setFeedbackLeft('✅'); }
+                    else { setP2Score(p => Math.min(6, p + 1)); setFeedbackRight('✅'); }
+                } else {
+                    playSound('wrong');
+                    if (isLeft) { setP1Score(p => Math.max(0, p - 1)); setFeedbackLeft('😭'); }
+                    else { setP2Score(p => Math.max(0, p - 1)); setFeedbackRight('😭'); }
+                }
+
+                // หากตอบถูก หรือตอบครบทั้งคู่ ให้รอ 2 วินาทีก่อนเปลี่ยนข้อ
+                if (isCorrect || (hasAnsweredLeft.current && hasAnsweredRight.current)) {
+                    setIsWaitingNext(true);
+                    setTimeout(() => {
+                        setFeedbackLeft(null); 
+                        setFeedbackRight(null);
+                        generateQuestion();
+                    }, 2000); // ช่วงเวลา 2 วินาที
+                } else {
+                    // กรณีตอบผิดแต่ยังตอบไม่ครบ เคลียร์สัญลักษณ์ตามปกติ
+                    setTimeout(() => {
+                        if (isLeft) setFeedbackLeft(null); else setFeedbackRight(null);
+                    }, 1500);
+                }
+            };
+
+            return (
+                <div className="absolute inset-0 z-10 w-full h-full text-white pointer-events-none">
+                    {/* Camera Feed - ขนาดเต็มจอ */}
+                    <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover -z-10 transform scale-x-[-1]"></video>
+                    
+                    {/* UI Overlay */}
+                    <div className="absolute inset-0 flex flex-col pointer-events-auto relative w-full h-full">
+                        
+                        {/* เส้นขีดแบ่งตรงกลาง (อยู่ด้านหลังคำถามและคำตอบ) */}
+                        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l-2 border-dashed border-white/40 pointer-events-none z-0"></div>
+
+                        {/* Top Bar */}
+                        <div className="flex justify-between items-start p-4 relative z-10">
+                            <button onClick={() => setFacingMode(f => f === 'user' ? 'environment' : 'user')} className="glass px-4 py-2 rounded-full font-bold shadow-3d btn-pop text-sm">
+                                🔄 สลับกล้อง
+                            </button>
+                            <div className="glass px-6 py-2 rounded-full text-2xl font-bold shadow-3d">
+                                ⏱ <span className={timeLeft <= 3 ? "text-shake inline-block text-red-400" : ""}>{timeLeft}s</span>
+                            </div>
+                            <div className="w-20"></div> {/* Spacer */}
+                        </div>
+
+                        {/* Question Area (อยู่ด้านหน้าเส้นแบ่งด้วย z-10) */}
+                        {question && (
+                            <div className="flex-1 flex flex-col items-center justify-start mt-4 px-2 relative z-10">
+                                <div className="glass-dark px-10 py-6 rounded-3xl shadow-3d text-center border-2 border-yellow-400 mb-6 max-w-2xl w-full bubble">
+                                    <h3 className="text-xl font-bold mb-4 text-yellow-300">แปลงให้ถูกต้อง</h3>
+                                    <div className="font-bold">{question.q}</div>
+                                </div>
+
+                                {/* กล่องตัวเลือก 3 ข้อ */}
+                                <div className="flex gap-2 w-full max-w-2xl px-4">
+                                    {question.choices.map((c, i) => (
+                                        <div key={i} className="flex-1 glass text-center py-2 rounded-xl shadow-3d font-bold text-base bg-indigo-900/70 border border-white/50">
+                                            <div className="text-yellow-300 text-xs mb-1">{c.label}</div>
+                                            <div>{c.val}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Feedback Emojis */}
+                        {feedbackLeft && <div className="emoji-feedback left-1/4 top-1/2 z-10">{feedbackLeft}</div>}
+                        {feedbackRight && <div className="emoji-feedback right-1/4 top-1/2 z-10">{feedbackRight}</div>}
+
+                        {/* Testing Buttons for Developers / Fallback */}
+                        <div className="mt-auto flex justify-between px-10 py-2 opacity-30 hover:opacity-100 transition-opacity relative z-10">
+                             <div className="space-x-2">
+                                <button onClick={()=>handleAnswer('left', 0)} className="bg-white/20 p-2 rounded shadow-3d btn-pop">P1: ยิ้ม</button>
+                                <button onClick={()=>handleAnswer('left', 1)} className="bg-white/20 p-2 rounded shadow-3d btn-pop">P1: อ้า</button>
+                                <button onClick={()=>handleAnswer('left', 2)} className="bg-white/20 p-2 rounded shadow-3d btn-pop">P1: จู๋</button>
+                             </div>
+                             <div className="space-x-2">
+                                <button onClick={()=>handleAnswer('right', 0)} className="bg-white/20 p-2 rounded shadow-3d btn-pop">P2: ยิ้ม</button>
+                                <button onClick={()=>handleAnswer('right', 1)} className="bg-white/20 p-2 rounded shadow-3d btn-pop">P2: อ้า</button>
+                                <button onClick={()=>handleAnswer('right', 2)} className="bg-white/20 p-2 rounded shadow-3d btn-pop">P2: จู๋</button>
+                             </div>
+                        </div>
+
+                        {/* Bottom Score Bars */}
+                        <div className="flex w-full h-32 glass-dark border-t-2 border-white/40 p-4 gap-8 rounded-t-3xl shadow-[0_-10px_20px_rgba(0,0,0,0.5)] relative z-10">
+                            {/* P1 Score */}
+                            <div className="flex-1 flex flex-col justify-center">
+                                <div className="flex justify-between mb-2">
+                                    <span className="font-bold text-pink-300">ผู้ท้าทาย</span>
+                                    <span className="font-bold">{p1Score}/6</span>
+                                </div>
+                                <div className="w-full bg-gray-800 rounded-full h-8 relative border-2 border-pink-400/50 shadow-inner overflow-hidden">
+                                    <div className="bg-gradient-to-r from-pink-500 to-rose-500 h-full transition-all duration-500 rounded-full" style={{ width: `${(p1Score / 6) * 100}%` }}></div>
+                                    <img src={p1Icon} className="absolute top-0 h-8 w-8 rounded-full border-2 border-white shadow-md transition-all duration-500 object-cover" style={{ left: `calc(${(p1Score / 6) * 100}% - 16px)`, transform: p1Score===0 ? 'translateX(16px)':'' }} alt="p1" />
+                                </div>
+                            </div>
+                            
+                            {/* P2 Score (Zombies) */}
+                            <div className="flex-1 flex flex-col justify-center">
+                                <div className="flex justify-between mb-2">
+                                    <span className="font-bold text-green-300">Zombies</span>
+                                    <span className="font-bold">{p2Score}/6</span>
+                                </div>
+                                <div className="w-full bg-gray-800 rounded-full h-8 relative border-2 border-green-400/50 shadow-inner overflow-hidden">
+                                    <div className="bg-gradient-to-r from-green-500 to-emerald-500 h-full transition-all duration-500 rounded-full" style={{ width: `${(p2Score / 6) * 100}%` }}></div>
+                                    <img src="iconzombies.png" className="absolute top-0 h-8 w-8 rounded-full border-2 border-white shadow-md transition-all duration-500 object-cover" style={{ left: `calc(${(p2Score / 6) * 100}% - 16px)`, transform: p2Score===0 ? 'translateX(16px)':'' }} alt="zombie" />
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

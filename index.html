@@ -423,7 +423,7 @@
                 <p>2. <b class="text-yellow-300 text-2xl">เริ่มข้อใหม่:</b> ผู้เล่นทั้ง 2 ฝ่ายต้อง <u class="font-black text-white bg-red-600/50 px-2 py-1 rounded">กำมือชูนิ้วโป้งพร้อมกัน</u> ให้กล้องเห็น เพื่อแสดงความพร้อม</p>
                 <p>3. <b class="text-pink-300 text-2xl">การตอบ:</b> แข่งกันชูนิ้วเพื่อเลือกคำตอบที่ถูกต้องให้เร็วที่สุด
                     <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-cyan-200"> แสดงสัญลักษณ์ ถูกต้อง👉โดยชูนิ้วหัวแม่มือและนิ้วชี้พร้อมกัน </span>
-                    <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-pink-200"> แสดงสัญลักษณ์ love🤟โดยชูนิ้วหัวแม่มือ,นิ้วชี้,นิ้วก้อยพร้อมกัน </span>
+                    <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-pink-200"> แสดงสัญลักษณ์ OK👌โดยชูนิ้วหัวแม่มือ,นิ้วชี้,นิ้วก้อยพร้อมกัน </span>
                     <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-yellow-200"> แสดงสัญลักษณ์ 2นิ้ว✌️โดยชูนิ้วชี้และนิ้วกลางพร้อมกัน  </span>
                 </p>
                 <p>4. <b class="text-red-400 text-2xl">ระวัง:</b> หากตอบผิด จะมีอิโมจิ 😭 ขึ้นบนหัวและต้องรอข้อถัดไป</p>
@@ -935,7 +935,7 @@
             // Gesture recognition matching choices
             // ✌️ Victory (Index + Middle up) -> Choice 3
             if (isIndexUp && isMiddleUp && !isRingUp && !isPinkyUp) return 3;
-            // 🤟 Love (Thumb + Index + Pinky up) -> Choice 2
+            // 👌 OK (Thumb + Index + Pinky up) -> Choice 2
             if (isThumbUp && isIndexUp && isPinkyUp && !isMiddleUp && !isRingUp) return 2;
             // 👉 Pointing/Gun (Index up) -> Choice 1
             if (isIndexUp && !isMiddleUp && !isRingUp && !isPinkyUp) return 1;

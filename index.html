@@ -239,7 +239,7 @@
     <audio id="bgm-game" loop preload="auto" src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/soundzombies.wav"></audio>
 
     <!-- 1. START SCREEN -->
-    <div id="screen-start" class="absolute inset-0 z-40 flex flex-col justify-between items-center w-full h-full bg-black">
+    <div id="screen-start" class="absolute inset-0 z-40 flex flex-col justify-between items-center w-full h-auto bg-black">
         <!-- ปรับ h-auto เป็น h-full และเพิ่ม hw-accel-video และ preload="auto" -->
         <video id="video-home" autoplay loop muted playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-auto object-cover z-0">
             <source src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/homepage.mp4" type="video/mp4">
@@ -370,7 +370,7 @@
     </div>
 
     <!-- 4. END SCREEN -->
-    <div id="screen-end" class="hidden absolute inset-0 z-50 flex flex-col justify-center items-center w-full h-full bg-black">
+    <div id="screen-end" class="hidden absolute inset-0 z-50 flex flex-col justify-center items-center w-full h-auto bg-black">
         <!-- เพิ่ม hw-accel-video และ preload -->
         <video id="video-end" loop muted playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-auto object-cover z-0">
             <source src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/endpage.mp4" type="video/mp4">

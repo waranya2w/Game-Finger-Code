@@ -239,9 +239,9 @@
     <audio id="bgm-game" loop preload="auto" src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/soundzombies.wav"></audio>
 
     <!-- 1. START SCREEN -->
-    <div id="screen-start" class="absolute inset-0 z-40 flex flex-col justify-between items-center w-full h-auto bg-black">
+    <div id="screen-start" class="absolute inset-0 z-40 flex flex-col justify-between items-center w-full h-full bg-black">
         <!-- ปรับ h-auto เป็น h-full และเพิ่ม hw-accel-video และ preload="auto" -->
-        <video id="video-home" autoplay loop muted playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-auto object-cover z-0">
+        <video id="video-home" autoplay loop muted playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-full object-cover z-0">
             <source src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/homepage.mp4" type="video/mp4">
         </video>
         
@@ -249,7 +249,7 @@
         <div class="w-full z-10 flex justify-end p-6">
             <button onclick="withClickSound(toggleHomeAudio)()" class="glass-card px-5 py-3 text-white font-bold flex items-center gap-3 hover:bg-white/20 transition cursor-pointer shadow-lg border-white/40">
                 <i id="home-audio-icon" class="fa-solid fa-volume-xmark text-2xl text-red-400"></i>
-                <span id="home-audio-text" class="text-lg tracking-wide">เปิดเสียงวิดีโอ</span>
+                <span id="home-audio-text" class="text-lg tracking-wide">เปิดเสียง</span>
             </button>
         </div>
 
@@ -276,7 +276,7 @@
     <!-- 2. TRANSITION SCREEN (Gotoplay Video) -->
     <div id="screen-transition" class="hidden absolute inset-0 z-50 bg-black flex items-center justify-center">
         <!-- Transition video plays WITH sound (เพิ่ม hw-accel-video, preload) -->
-        <video id="video-transition" playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-auto object-cover">
+        <video id="video-transition" playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-full object-cover">
             <source src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/gotoplay.mp4" type="video/mp4">
         </video>
         <button onclick="withClickSound(skipTransition)()" class="absolute bottom-10 right-10 glass-card px-8 py-3 text-xl text-white hover:text-cyan-300 z-10 font-bold border border-white/50 bg-black/50">
@@ -370,9 +370,9 @@
     </div>
 
     <!-- 4. END SCREEN -->
-    <div id="screen-end" class="hidden absolute inset-0 z-50 flex flex-col justify-center items-center w-full h-auto bg-black">
+    <div id="screen-end" class="hidden absolute inset-0 z-50 flex flex-col justify-center items-center w-full h-full bg-black">
         <!-- เพิ่ม hw-accel-video และ preload -->
-        <video id="video-end" loop muted playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-auto object-cover z-0">
+        <video id="video-end" loop muted playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-full object-cover z-0">
             <source src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/endpage.mp4" type="video/mp4">
         </video>
         
@@ -420,7 +420,7 @@
             <h2 class="text-4xl font-black text-pink-300 text-center drop-shadow-md mb-4">🎮กติกาการเล่นเกม🎮</h2>
             <div class="text-xl text-gray-100 leading-loose space-y-4 max-h-[60vh] overflow-y-auto pr-4 font-semibold">
                 <p>1. <b class="text-cyan-300 text-2xl">แบ่งฝั่งผู้เล่น:</b> ฝั่งซ้ายคือ <span class="bg-cyan-900/50 px-2 rounded">แก๊งนักล่า</span> | ฝั่งขวาคือ <span class="bg-orange-900/50 px-2 rounded">ซอมบี้</span></p>
-                <p>2. <b class="text-yellow-300 text-2xl">เริ่มข้อใหม่:</b> ผู้เล่นทั้ง 2 ฝ่ายต้อง <u class="font-black text-white bg-red-600/50 px-2 py-1 rounded">กำมือชูนิ้วโป้งพร้อมกัน</u> ให้กล้องเห็น เพื่อแสดงความพร้อม</p>
+                <p>2. <b class="text-yellow-300 text-2xl">เริ่มข้อแรก:</b> ผู้เล่นทั้ง 2 ฝ่ายต้อง <u class="font-black text-white bg-red-600/50 px-2 py-1 rounded">กำมือชูนิ้วโป้งพร้อมกัน</u> ให้กล้องเห็น เพื่อแสดงความพร้อม</p>
                 <p>3. <b class="text-pink-300 text-2xl">การตอบ:</b> แข่งกันชูนิ้วเพื่อเลือกคำตอบที่ถูกต้องให้เร็วที่สุด
                     <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-cyan-200"> แสดงสัญลักษณ์ ถูกต้อง👉โดยชูนิ้วหัวแม่มือและนิ้วชี้พร้อมกัน </span>
                     <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-pink-200"> แสดงสัญลักษณ์ OK👌โดยชูนิ้วหัวแม่มือ,นิ้วชี้,นิ้วก้อยพร้อมกัน </span>
@@ -655,7 +655,7 @@
                 return {
                     qHtml: `<div class="frac"><span>${num}</span><span>${den}</span></div> = ?`,
                     choicesHtml: choices.map((c, i) => `<span class="${colors[i]} ${bgColors[i]} px-3 py-1.5 rounded-xl border-2 drop-shadow-md flex items-center gap-2">
-                        <span class="bg-black/40 text-white rounded-full w-7 h-7 md:w-8 md:h-8 flex items-center justify-center text-lg md:text-xl">${['👉','🤟','✌️'][i]}</span> ${c}
+                        <span class="bg-black/40 text-white rounded-full w-7 h-7 md:w-8 md:h-8 flex items-center justify-center text-lg md:text-xl">${['👉','👌','✌️'][i]}</span> ${c}
                     </span>`),
                     correct: correctIdx
                 };
@@ -683,7 +683,7 @@
                 return {
                     qHtml: `${dec} = ?`,
                     choicesHtml: choices.map((c, i) => `<span class="${colors[i]} ${bgColors[i]} px-3 py-1.5 rounded-xl border-2 drop-shadow-md flex items-center gap-2">
-                        <span class="bg-black/40 text-white rounded-full w-7 h-7 md:w-8 md:h-8 flex items-center justify-center text-lg md:text-xl">${['👉','🤟','✌️'][i]}</span> ${c}
+                        <span class="bg-black/40 text-white rounded-full w-7 h-7 md:w-8 md:h-8 flex items-center justify-center text-lg md:text-xl">${['👉','👌','✌️'][i]}</span> ${c}
                     </span>`),
                     correct: correctIdx
                 };

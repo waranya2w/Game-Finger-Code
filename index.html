@@ -652,7 +652,7 @@
                 return {
                     qHtml: `<div class="frac"><span>${num}</span><span>${den}</span></div> = ?`,
                     choicesHtml: choices.map((c, i) => `<span class="${colors[i]} ${bgColors[i]} px-2.5 py-1 rounded-xl border-2 drop-shadow-md flex items-center gap-1.5 sm:gap-2">
-                        <span class="bg-black/40 text-white rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center text-sm sm:text-xl">${['👉','🤟','✌️'][i]}</span> ${c}
+                        <span class="bg-black/40 text-white rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center text-sm sm:text-xl">${['👉','👌','✌️'][i]}</span> ${c}
                     </span>`),
                     correct: correctIdx
                 };
@@ -679,7 +679,7 @@
                 return {
                     qHtml: `${dec} = ?`,
                     choicesHtml: choices.map((c, i) => `<span class="${colors[i]} ${bgColors[i]} px-2.5 py-1 rounded-xl border-2 drop-shadow-md flex items-center gap-1.5 sm:gap-2">
-                        <span class="bg-black/40 text-white rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center text-sm sm:text-xl">${['👉','🤟','✌️'][i]}</span> ${c}
+                        <span class="bg-black/40 text-white rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center text-sm sm:text-xl">${['👉','👌','✌️'][i]}</span> ${c}
                     </span>`),
                     correct: correctIdx
                 };

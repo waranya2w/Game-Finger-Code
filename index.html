@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR Math Game</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Mali -->
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- MediaPipe Hands & Camera Utils (Pinned to matching version 0.4.1675469240) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.4/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+
+    <!-- Tailwind Config for Custom Colors & Animations -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Mali', 'sans-serif'] },
+                    colors: {
+                        navy: '#0f172a',
+                        burgundy: '#4c0519',
+                        indigo: '#312e81'
+                    },
+                    animation: {
+                        'bounce-slow': 'bounce 3s infinite',
+                        'shake': 'shake 0.4s ease-in-out infinite',
+                        'pop': 'popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                    },
+                    keyframes: {
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0) rotate(0)' },
+                            '25%': { transform: 'translateX(-8px) rotate(-2deg)' },
+                            '75%': { transform: 'translateX(8px) rotate(2deg)' }
+                        },
+                        popIn: {
+                            '0%': { transform: 'scale(0.5)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.5))' },
+                            '50%': { filter: 'drop-shadow(0 0 25px rgba(255,255,255,0.9))' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a, #312e81, #4c0519);
+            color: #ffffff;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        /* Glassmorphism & Bubbles */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.2);
+            border-radius: 2rem;
+            /* เพิ่ม transform เพื่อแยก Layer ลดภาระ GPU ในการทำ blur ทับวิดีโอ */
+            transform: translateZ(0); 
+        }
+
+        .glass-bubble {
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4), rgba(255,255,255,0.1) 60%, rgba(0,0,0,0.3));
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5), inset 0 8px 15px rgba(255,255,255,0.7);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateZ(0);
+        }
+        
+        .glass-bubble:hover {
+            transform: scale(1.15) translateY(-5px) translateZ(0);
+            border-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 10px 20px rgba(255,255,255,0.8);
+        }
+
+        .glass-bubble.selected {
+            background: radial-gradient(circle at 30% 30%, rgba(52, 211, 153, 0.6), rgba(16, 185, 129, 0.3) 60%, rgba(0,0,0,0.4));
+            border-color: #34d399;
+            box-shadow: 0 0 25px #10b981, inset 0 8px 15px rgba(255,255,255,0.8);
+            transform: scale(1.1) translateZ(0);
+        }
+
+        /* 100% Original Image Buttons Styling with Hover/Shadow */
+        .img-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: drop-shadow(0 15px 20px rgba(0,0,0,0.6));
+            will-change: transform, filter;
+        }
+        .img-btn:hover {
+            transform: scale(1.12) translateY(-10px);
+            filter: drop-shadow(0 25px 30px rgba(0,0,0,0.9));
+        }
+        .img-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-start {
+            filter: drop-shadow(0 0 15px rgba(255,255,255,0.4)) drop-shadow(0 15px 20px rgba(0,0,0,0.6));
+        }
+        .btn-start:hover {
+            transform: scale(1.2) translateY(-10px);
+            filter: drop-shadow(0 0 25px rgba(255,255,255,0.8)) drop-shadow(0 25px 30px rgba(0,0,0,0.9));
+        }
+
+        /* Vertical Fraction formatting */
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 0.5rem;
+            font-weight: 900;
+        }
+        .frac > span:first-child {
+            border-bottom: 4px solid white;
+            padding: 0 0.25rem;
+            line-height: 1.1;
+        }
+        .frac > span:last-child {
+            padding: 0 0.25rem;
+            line-height: 1.1;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 4px; }
+
+        /* การทำ Hardware Acceleration เพื่อกันวิดีโอกระตุก */
+        .hw-accel-video {
+            will-change: transform;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            perspective: 1000;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col relative selection:bg-pink-500">
+
+    <script>
+        // --- WEB AUDIO API SYNTHESIZER (Sound FX) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function initAudioContext() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSynthSound(type) {
+            initAudioContext();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+            
+            if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } 
+            else if (type === 'tick') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(1000, now);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+            else if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                osc.frequency.setValueAtTime(1046.50, now + 0.3); // C6
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.linearRampToValueAtTime(0.4, now + 0.3);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            }
+            else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(80, now + 0.4);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+            else if (type === 'pop') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+        }
+
+        function withClickSound(fn) {
+            return function(...args) {
+                playSynthSound('click');
+                fn(...args);
+            }
+        }
+    </script>
+
+    <!-- MEDIA ASSETS -->
+    <audio id="bgm-game" loop preload="auto" src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/soundzombies.wav"></audio>
+
+    <!-- 1. START SCREEN -->
+    <div id="screen-start" class="absolute inset-0 z-40 flex flex-col justify-between items-center w-full h-full bg-black">
+        <!-- ปรับ h-auto เป็น h-full และเพิ่ม hw-accel-video และ preload="auto" -->
+        <video id="video-home" autoplay loop muted playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-auto object-cover z-0">
+            <source src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/homepage.mp4" type="video/mp4">
+        </video>
+        
+        <!-- Top Bar (Audio Toggle) -->
+        <div class="w-full z-10 flex justify-end p-6">
+            <button onclick="withClickSound(toggleHomeAudio)()" class="glass-card px-5 py-3 text-white font-bold flex items-center gap-3 hover:bg-white/20 transition cursor-pointer shadow-lg border-white/40">
+                <i id="home-audio-icon" class="fa-solid fa-volume-xmark text-2xl text-red-400"></i>
+                <span id="home-audio-text" class="text-lg tracking-wide">เปิดเสียงวิดีโอ</span>
+            </button>
+        </div>
+
+        <!-- Bottom Buttons Row -->
+        <div class="z-10 w-full max-w-6xl p-6 mb-4 grid grid-cols-4 gap-2 md:gap-6 items-end">
+            <button onclick="withClickSound(openModal)('modal-mission')" class="img-btn w-full col-span-1 flex justify-center">
+                <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/manubutton.png" class="w-11/12 object-contain" alt="เลือกภารกิจ">
+            </button>
+            <button onclick="withClickSound(startGameFlow)()" class="img-btn btn-start w-full col-span-1 scale-125 z-20 flex justify-center -translate-y-4">
+                <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/startbutton.png" class="w-full object-contain animate-pulse-glow" alt="เริ่มเกม">
+            </button>
+            <button onclick="withClickSound(openModal)('modal-howtoplay')" class="img-btn w-full col-span-1 flex justify-center">
+                <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/howtoplaybutton.png" class="w-11/12 object-contain" alt="กติกาการเล่น">
+            </button>
+            <button onclick="withClickSound(openModal)('modal-character')" class="img-btn w-full col-span-1 flex justify-center">
+                <!-- Character button scales to fit bubble -->
+                <div class="glass-bubble w-20 h-20 md:w-28 md:h-28 p-2 flex items-center justify-center">
+                    <img id="btn-char-display" src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson1.png" class="w-[85%] h-[85%] object-contain drop-shadow-md" alt="เลือกตัวละคร">
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. TRANSITION SCREEN (Gotoplay Video) -->
+    <div id="screen-transition" class="hidden absolute inset-0 z-50 bg-black flex items-center justify-center">
+        <!-- Transition video plays WITH sound (เพิ่ม hw-accel-video, preload) -->
+        <video id="video-transition" playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-auto object-cover">
+            <source src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/gotoplay.mp4" type="video/mp4">
+        </video>
+        <button onclick="withClickSound(skipTransition)()" class="absolute bottom-10 right-10 glass-card px-8 py-3 text-xl text-white hover:text-cyan-300 z-10 font-bold border border-white/50 bg-black/50">
+            Skip <i class="fa-solid fa-forward ml-2"></i>
+        </button>
+    </div>
+
+    <!-- 3. GAME SCREEN -->
+    <div id="screen-game" class="hidden absolute inset-0 z-30 flex flex-col justify-between w-full h-full bg-black overflow-hidden">
+        
+        <!-- Webcam & AR Canvas -->
+        <video id="webcam" class="hidden" playsinline autoplay muted></video>
+        <canvas id="ar-canvas" class="hw-accel-video absolute inset-0 w-full h-full object-cover z-0 opacity-100"></canvas>
+
+        <!-- Top HUD -->
+        <div class="z-10 w-full p-4 flex flex-col items-center">
+            <!-- Badges & Controls -->
+            <div class="glass-card px-6 py-3 flex justify-between items-center w-full max-w-7xl mb-4 bg-navy/70 border-cyan-500/30">
+                <span id="game-mission-badge" class="font-bold text-xl md:text-2xl text-cyan-300 drop-shadow-lg flex items-center gap-2">
+                    <i class="fa-solid fa-crosshairs"></i> ภารกิจ: กำลังโหลด...
+                </span>
+                <button onclick="withClickSound(toggleCamera)()" class="bg-white/10 hover:bg-white/30 border border-white/40 px-5 py-2 rounded-xl backdrop-blur-sm transition text-lg font-bold">
+                    <i class="fa-solid fa-camera-rotate mr-2"></i>สลับกล้อง
+                </button>
+            </div>
+
+            <!-- Question Box -->
+            <div id="question-box" class="glass-card flex flex-col items-center justify-center p-3 md:p-4 w-[90%] max-w-3xl text-center transform transition-transform border-4 border-indigo-400/50 shadow-[0_0_40px_rgba(79,70,229,0.3)] bg-navy/80 mt-2">
+                <div id="q-status" class="text-lg md:text-xl font-bold text-yellow-300 mb-1 drop-shadow-lg">
+                    <i class="fa-solid fa-hand-fist mr-2"></i> ชูนิ้วโป้ง เพื่อเริ่มข้อต่อไป!
+                </div>
+                <div id="q-text" class="text-3xl md:text-5xl font-black text-white my-2 drop-shadow-[0_5px_10px_rgba(0,0,0,0.9)] leading-tight tracking-wider">
+                    <!-- Question inject here -->
+                </div>
+                <div id="q-choices" class="flex flex-row justify-center items-center gap-3 md:gap-6 text-xl md:text-3xl font-black mt-2 opacity-0 transition-opacity duration-300">
+                    <!-- Choices inject here (Color coded) -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Feedback Overlay -->
+        <div id="feedback-overlay" class="absolute inset-0 z-20 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300">
+            <div id="feedback-text" class="text-6xl md:text-8xl font-black text-white drop-shadow-[0_15px_25px_rgba(0,0,0,1)] glass-card px-16 py-8 border-4 border-emerald-400 bg-emerald-900/90 text-center leading-tight">
+                ตอบถูก!
+            </div>
+        </div>
+
+        <!-- Bottom HUD: Sliders -->
+        <div class="z-10 w-full p-6 md:p-10 flex flex-col gap-4 max-w-[90rem] mx-auto bg-gradient-to-t from-black/80 to-transparent">
+            <div class="grid grid-cols-2 gap-8 md:gap-16 w-full">
+                
+                <!-- Player 1 Slider (Left - Player) -->
+                <div class="flex flex-col gap-3">
+                    <div class="flex justify-between items-end px-4 drop-shadow-md">
+                        <span class="text-cyan-300 font-black text-2xl md:text-3xl bg-black/50 px-4 py-1 rounded-t-xl border border-cyan-500/30 border-b-0">Player</span>
+                        <span id="p1-score-display" class="text-white font-bold text-xl md:text-2xl bg-black/50 px-3 py-1 rounded-lg">0 / 8</span>
+                    </div>
+                    <div class="relative w-full h-12 md:h-16 glass-card bg-black/80 rounded-full border-4 border-cyan-500 p-1 flex items-center shadow-[0_0_20px_rgba(6,182,212,0.4)]">
+                        <!-- Background track notches -->
+                        <div class="absolute inset-0 flex justify-between px-2 items-center opacity-30 pointer-events-none">
+                            <div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div>
+                        </div>
+                        <div id="p1-progress" class="h-full bg-gradient-to-r from-cyan-700 via-cyan-400 to-cyan-300 rounded-full transition-all duration-500 ease-out shadow-[0_0_15px_#22d3ee]" style="width: 0%;"></div>
+                        <div id="p1-icon-container" class="absolute left-0 transition-all duration-500 ease-out z-10 flex items-center justify-center w-16 h-16 md:w-24 md:h-24 -ml-4 md:-ml-8">
+                            <img id="p1-slider-icon" src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson1.png" class="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.8)] filter brightness-110" alt="P1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Player 2 Slider (Right - Zombies) -->
+                <div class="flex flex-col gap-3">
+                    <div class="flex justify-between items-end px-4 drop-shadow-md">
+                        <span id="p2-score-display" class="text-white font-bold text-xl md:text-2xl bg-black/50 px-3 py-1 rounded-lg">0 / 8</span>
+                        <span class="text-orange-400 font-black text-2xl md:text-3xl bg-black/50 px-4 py-1 rounded-t-xl border border-orange-500/30 border-b-0">Zombies</span>
+                    </div>
+                    <!-- Right slider: fills left-to-right, icon moves accordingly -->
+                    <div class="relative w-full h-12 md:h-16 glass-card bg-black/80 rounded-full border-4 border-orange-500 p-1 flex items-center justify-end shadow-[0_0_20px_rgba(249,115,22,0.4)]">
+                         <!-- Background track notches -->
+                         <div class="absolute inset-0 flex justify-between px-2 items-center opacity-30 pointer-events-none">
+                            <div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div><div class="w-2 h-4 bg-white rounded-full"></div>
+                        </div>
+                        <div id="p2-progress" class="h-full bg-gradient-to-l from-orange-700 via-orange-400 to-yellow-300 rounded-full transition-all duration-500 ease-out shadow-[0_0_15px_#fb923c] absolute right-1" style="width: 0%;"></div>
+                        <div id="p2-icon-container" class="absolute right-0 transition-all duration-500 ease-out z-10 flex items-center justify-center w-16 h-16 md:w-24 md:h-24 -mr-4 md:-mr-8">
+                            <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconzombies.png" id="p2-slider-icon" class="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.8)] filter brightness-110" alt="P2">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. END SCREEN -->
+    <div id="screen-end" class="hidden absolute inset-0 z-50 flex flex-col justify-center items-center w-full h-full bg-black">
+        <!-- เพิ่ม hw-accel-video และ preload -->
+        <video id="video-end" loop muted playsinline preload="auto" class="hw-accel-video absolute inset-0 w-full h-auto object-cover z-0">
+            <source src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/endpage.mp4" type="video/mp4">
+        </video>
+        
+        <div class="z-10 glass-card p-12 flex flex-col items-center animate-pop max-w-3xl text-center bg-navy/90 border-4 border-yellow-400 shadow-[0_0_50px_rgba(250,204,21,0.5)]">
+            <h1 id="winner-text" class="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-500 drop-shadow-[0_10px_10px_rgba(0,0,0,1)] mb-6">
+                The winner is
+            </h1>
+            <p class="text-2xl md:text-3xl text-white font-bold mb-10 bg-black/50 px-6 py-2 rounded-full">Welldone!</p>
+            
+            <div class="flex flex-row justify-center gap-8 w-full px-4">
+                <button onclick="withClickSound(returnToHome)()" class="img-btn w-1/2 flex justify-center">
+                    <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/homebutton.png" class="w-full max-w-[200px] object-contain animate-pulse-glow" alt="หน้าแรก">
+                </button>
+                <button onclick="withClickSound(playAgain)()" class="img-btn w-1/2 flex justify-center scale-110 btn-start">
+                    <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/playagainbutton.png" class="w-full max-w-[200px] object-contain animate-pulse-glow" alt="เล่นอีกครั้ง">
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <!-- Mission Modal -->
+    <div id="modal-mission" class="hidden absolute inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-card bg-indigo-900/95 p-10 max-w-2xl w-full animate-pop flex flex-col gap-8 border-4 border-cyan-400 shadow-2xl">
+            <h2 class="text-4xl font-black text-cyan-300 text-center drop-shadow-md tracking-wide">เลือกภารกิจ</h2>
+            <div class="flex flex-col gap-6">
+                <label class="glass-card p-6 flex items-center gap-6 cursor-pointer hover:bg-white/10 transition border-2 border-cyan-500/50 hover:border-cyan-400 group">
+                    <input type="radio" name="mission" value="1" checked class="w-8 h-8 accent-cyan-400">
+                    <span class="text-2xl font-bold text-white group-hover:text-cyan-200">ภารกิจที่ 1: เปลี่ยนเศษส่วนเป็นทศนิยม</span>
+                </label>
+                <label class="glass-card p-6 flex items-center gap-6 cursor-pointer hover:bg-white/10 transition border-2 border-cyan-500/50 hover:border-cyan-400 group">
+                    <input type="radio" name="mission" value="2" class="w-8 h-8 accent-cyan-400">
+                    <span class="text-2xl font-bold text-white group-hover:text-cyan-200">ภารกิจที่ 2: เปลี่ยนทศนิยมเป็นเศษส่วน</span>
+                </label>
+            </div>
+            <button onclick="withClickSound(closeModal)('modal-mission')" class="bg-gradient-to-r from-cyan-500 to-blue-600 px-10 py-4 rounded-3xl font-black text-2xl hover:scale-105 transition shadow-[0_10px_20px_rgba(0,0,0,0.5)] self-center text-white border-2 border-white/30">
+                ตกลง
+            </button>
+        </div>
+    </div>
+
+    <!-- How To Play Modal -->
+    <div id="modal-howtoplay" class="hidden absolute inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-card bg-burgundy/95 p-10 max-w-3xl w-full animate-pop flex flex-col gap-6 border-4 border-pink-400 shadow-2xl">
+            <h2 class="text-4xl font-black text-pink-300 text-center drop-shadow-md mb-4">🎮กติกาการเล่นเกม🎮</h2>
+            <div class="text-xl text-gray-100 leading-loose space-y-4 max-h-[60vh] overflow-y-auto pr-4 font-semibold">
+                <p>1. <b class="text-cyan-300 text-2xl">แบ่งฝั่งผู้เล่น:</b> ฝั่งซ้ายคือ <span class="bg-cyan-900/50 px-2 rounded">แก๊งนักล่า</span> | ฝั่งขวาคือ <span class="bg-orange-900/50 px-2 rounded">ซอมบี้</span></p>
+                <p>2. <b class="text-yellow-300 text-2xl">เริ่มข้อใหม่:</b> ผู้เล่นทั้ง 2 ฝ่ายต้อง <u class="font-black text-white bg-red-600/50 px-2 py-1 rounded">กำมือชูนิ้วโป้งพร้อมกัน</u> ให้กล้องเห็น เพื่อแสดงความพร้อม</p>
+                <p>3. <b class="text-pink-300 text-2xl">การตอบ:</b> แข่งกันชูนิ้วเพื่อเลือกคำตอบที่ถูกต้องให้เร็วที่สุด
+                    <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-cyan-200"> แสดงสัญลักษณ์ ถูกต้อง👉โดยชูนิ้วหัวแม่มือและนิ้วชี้พร้อมกัน </span>
+                    <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-pink-200"> แสดงสัญลักษณ์ love🤟โดยชูนิ้วหัวแม่มือ,นิ้วชี้,นิ้วก้อยพร้อมกัน </span>
+                    <br><span class="inline-block ml-8 mt-2 bg-black/30 px-4 py-2 rounded-lg text-yellow-200"> แสดงสัญลักษณ์ 2นิ้ว✌️โดยชูนิ้วชี้และนิ้วกลางพร้อมกัน  </span>
+                </p>
+                <p>4. <b class="text-red-400 text-2xl">ระวัง:</b> หากตอบผิด จะมีอิโมจิ 😭 ขึ้นบนหัวและต้องรอข้อถัดไป</p>
+                <p>5. <b class="text-emerald-400 text-2xl">การชนะ:</b> ใครสะสมคะแนนถึง <span class="text-3xl text-white">ระดับ 8</span> ก่อนจะเป็นผู้ชนะทันที!🎉🥳</p>
+            </div>
+            <button onclick="withClickSound(closeModal)('modal-howtoplay')" class="mt-6 bg-gradient-to-r from-pink-500 to-rose-600 px-10 py-4 rounded-3xl font-black text-2xl hover:scale-105 transition shadow-[0_10px_20px_rgba(0,0,0,0.5)] self-center text-white border-2 border-white/30">
+                เข้าใจแล้วลุยเลย!
+            </button>
+        </div>
+    </div>
+
+    <!-- Character Modal -->
+    <div id="modal-character" class="hidden absolute inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-card bg-teal-900/95 p-10 max-w-4xl w-full animate-pop flex flex-col gap-8 border-4 border-emerald-400 shadow-2xl">
+            <h2 class="text-4xl font-black text-emerald-300 text-center drop-shadow-md">👦🏻เลือกPlayer👧🏻</h2>
+            <div class="flex flex-wrap justify-center gap-8 mt-4">
+                <!-- Char 1-5 -->
+                <button onclick="withClickSound(selectCharacter)(1, this)" class="char-btn glass-bubble w-32 h-32 md:w-40 md:h-40 p-4 selected relative">
+                    <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson1.png" class="w-full h-full object-contain" alt="C1">
+                </button>
+                <button onclick="withClickSound(selectCharacter)(2, this)" class="char-btn glass-bubble w-32 h-32 md:w-40 md:h-40 p-4 relative">
+                    <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson2.png" class="w-full h-full object-contain" alt="C2">
+                </button>
+                <button onclick="withClickSound(selectCharacter)(3, this)" class="char-btn glass-bubble w-32 h-32 md:w-40 md:h-40 p-4 relative">
+                    <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson3.png" class="w-full h-full object-contain" alt="C3">
+                </button>
+                <button onclick="withClickSound(selectCharacter)(4, this)" class="char-btn glass-bubble w-32 h-32 md:w-40 md:h-40 p-4 relative">
+                    <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson4.png" class="w-full h-full object-contain" alt="C4">
+                </button>
+                <button onclick="withClickSound(selectCharacter)(5, this)" class="char-btn glass-bubble w-32 h-32 md:w-40 md:h-40 p-4 relative">
+                    <img src="https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson5.png" class="w-full h-full object-contain" alt="C5">
+                </button>
+            </div>
+            <button onclick="withClickSound(closeModal)('modal-character')" class="mt-8 bg-gradient-to-r from-emerald-500 to-teal-600 px-10 py-4 rounded-3xl font-black text-2xl hover:scale-105 transition shadow-[0_10px_20px_rgba(0,0,0,0.5)] self-center text-white border-2 border-white/30">
+                ตกลง
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL VARIABLES & STATE ---
+        const charUrls = [
+            "",
+            "https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson1.png",
+            "https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson2.png",
+            "https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson3.png",
+            "https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson4.png",
+            "https://raw.githubusercontent.com/waranya2w/Smiles-That-Stop-The-Zombies-/refs/heads/main/iconperson5.png"
+        ];
+        
+        let state = {
+            mission: 1,
+            characterId: 1,
+            scoreP1: 0,
+            scoreP2: 0,
+            targetScore: 8,
+            gamePhase: 'INIT', // INIT, WAIT_READY, COUNTDOWN, PLAYING, RESULT
+            currentQuestion: null,
+            p1WrongUntil: 0,
+            p2WrongUntil: 0,
+            homeAudioOn: false,
+            questionCount: 0
+        };
+
+        // DOM Elements
+        const ui = {
+            screens: {
+                start: document.getElementById('screen-start'),
+                transition: document.getElementById('screen-transition'),
+                game: document.getElementById('screen-game'),
+                end: document.getElementById('screen-end')
+            },
+            videos: {
+                home: document.getElementById('video-home'),
+                trans: document.getElementById('video-transition'),
+                end: document.getElementById('video-end')
+            },
+            game: {
+                qStatus: document.getElementById('q-status'),
+                qText: document.getElementById('q-text'),
+                qChoices: document.getElementById('q-choices'),
+                qBox: document.getElementById('question-box'),
+                badge: document.getElementById('game-mission-badge'),
+                fbOverlay: document.getElementById('feedback-overlay'),
+                fbText: document.getElementById('feedback-text'),
+                p1Prog: document.getElementById('p1-progress'),
+                p1IconCont: document.getElementById('p1-icon-container'),
+                p1Icon: document.getElementById('p1-slider-icon'),
+                p1Score: document.getElementById('p1-score-display'),
+                p2Prog: document.getElementById('p2-progress'),
+                p2IconCont: document.getElementById('p2-icon-container'),
+                p2Score: document.getElementById('p2-score-display')
+            }
+        };
+
+        const bgmGame = document.getElementById('bgm-game');
+        bgmGame.volume = 0.4;
+
+        // UI Modals & Home
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { 
+            document.getElementById(id).classList.add('hidden'); 
+            if(id === 'modal-mission') {
+                const checked = document.querySelector('input[name="mission"]:checked');
+                if(checked) state.mission = parseInt(checked.value);
+            }
+        }
+
+        function selectCharacter(id, btnElement) {
+            state.characterId = id;
+            document.querySelectorAll('.char-btn').forEach(b => b.classList.remove('selected'));
+            btnElement.classList.add('selected');
+            document.getElementById('btn-char-display').src = charUrls[id];
+        }
+
+        function toggleHomeAudio() {
+            state.homeAudioOn = !state.homeAudioOn;
+            ui.videos.home.muted = !state.homeAudioOn;
+            const icon = document.getElementById('home-audio-icon');
+            const txt = document.getElementById('home-audio-text');
+            if(state.homeAudioOn) {
+                icon.className = 'fa-solid fa-volume-high text-2xl text-emerald-400';
+                txt.textContent = 'ปิดเสียงวิดีโอ';
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-2xl text-red-400';
+                txt.textContent = 'เปิดเสียงวิดีโอ';
+            }
+        }
+
+        // Transitions
+        function startGameFlow() {
+            initAudioContext();
+            ui.videos.home.pause();
+            ui.screens.start.classList.add('hidden');
+            ui.screens.transition.classList.remove('hidden');
+            
+            ui.videos.trans.currentTime = 0;
+            ui.videos.trans.muted = false; // Transition plays WITH sound
+            
+            let playPromise = ui.videos.trans.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    console.log("Auto-play prevented for transition, skipping.");
+                    skipTransition();
+                });
+            }
+            ui.videos.trans.onended = () => { skipTransition(); };
+        }
+
+        function skipTransition() {
+            ui.videos.trans.pause();
+            ui.screens.transition.classList.add('hidden');
+            setupGameScreen();
+        }
+
+        function setupGameScreen() {
+            ui.screens.game.classList.remove('hidden');
+            
+            // BGM starts ONLY after transition finishes
+            bgmGame.play().catch(e => console.log("BGM play prevented"));
+            
+            // Setup Mission & UI
+            ui.game.badge.innerHTML = state.mission === 1 ? '<i class="fa-solid fa-crosshairs"></i> ภารกิจที่ 1: เปลี่ยนเศษส่วนเป็นทศนิยม' : '<i class="fa-solid fa-crosshairs"></i> ภารกิจที่ 2: เปลี่ยนทศนิยมเป็นเศษส่วน';
+            ui.game.p1Icon.src = charUrls[state.characterId];
+            
+            // Reset state
+            state.scoreP1 = 0;
+            state.scoreP2 = 0;
+            state.questionCount = 0;
+            updateScoreUI();
+            
+            if(!window.mediaPipeInited) {
+                initMediaPipe();
+                window.mediaPipeInited = true;
+            }
+
+            prepareNextQuestion();
+        }
+
+        function returnToHome() {
+            bgmGame.pause();
+            bgmGame.currentTime = 0;
+            ui.videos.end.pause();
+            ui.screens.end.classList.add('hidden');
+            ui.screens.start.classList.remove('hidden');
+            
+            if(state.homeAudioOn) {
+                ui.videos.home.muted = false;
+            } else {
+                ui.videos.home.muted = true;
+            }
+            ui.videos.home.play().catch(e=>console.log(e));
+            
+            if(cameraInstance && typeof cameraInstance.stop === 'function') {
+                cameraInstance.stop();
+                window.mediaPipeInited = false; // allow re-init
+            }
+        }
+
+        function playAgain() {
+            ui.videos.end.pause();
+            ui.screens.end.classList.add('hidden');
+            setupGameScreen();
+        }
+
+        // --- MATH QUESTION GENERATOR ---
+        function genQuestion() {
+            // Colors for A, B, C
+            const colors = ['text-cyan-300', 'text-pink-400', 'text-yellow-300'];
+            const bgColors = ['bg-cyan-900/50 border-cyan-500/50', 'bg-pink-900/50 border-pink-500/50', 'bg-yellow-900/50 border-yellow-500/50'];
+
+            if (state.mission === 1) {
+                // Fraction -> Decimal
+                const dens = [10, 100, 1000];
+                const den = dens[Math.floor(Math.random() * dens.length)];
+                const num = Math.floor(Math.random() * (den - 1)) + 1;
+                
+                const correct = (num / den).toFixed(den===10?1:den===100?2:3);
+                let fakes = [];
+                while(fakes.length < 2) {
+                    let fn = Math.floor(Math.random() * (den - 1)) + 1;
+                    let fv = (fn / den).toFixed(den===10?1:den===100?2:3);
+                    if(fv !== correct && !fakes.includes(fv)) fakes.push(fv);
+                }
+                
+                let choices = [correct, ...fakes].sort(() => Math.random() - 0.5);
+                let correctIdx = choices.indexOf(correct) + 1; 
+                
+                return {
+                    qHtml: `<div class="frac"><span>${num}</span><span>${den}</span></div> = ?`,
+                    choicesHtml: choices.map((c, i) => `<span class="${colors[i]} ${bgColors[i]} px-3 py-1.5 rounded-xl border-2 drop-shadow-md flex items-center gap-2">
+                        <span class="bg-black/40 text-white rounded-full w-7 h-7 md:w-8 md:h-8 flex items-center justify-center text-lg md:text-xl">${['👉','🤟','✌️'][i]}</span> ${c}
+                    </span>`),
+                    correct: correctIdx
+                };
+            } else {
+                // Decimal -> Fraction
+                const places = [1, 2, 3];
+                const p = places[Math.floor(Math.random() * places.length)];
+                const den = Math.pow(10, p);
+                const num = Math.floor(Math.random() * (den - 1)) + 1;
+                
+                const dec = (num / den).toFixed(p);
+                const correctHtml = `<div class="frac"><span>${num}</span><span>${den}</span></div>`;
+                
+                let fakes = [];
+                while(fakes.length < 2) {
+                    let fn = Math.floor(Math.random() * (den - 1)) + 1;
+                    if(fn !== num) {
+                        fakes.push(`<div class="frac"><span>${fn}</span><span>${den}</span></div>`);
+                    }
+                }
+
+                let choices = [correctHtml, ...fakes].sort(() => Math.random() - 0.5);
+                let correctIdx = choices.indexOf(correctHtml) + 1;
+
+                return {
+                    qHtml: `${dec} = ?`,
+                    choicesHtml: choices.map((c, i) => `<span class="${colors[i]} ${bgColors[i]} px-3 py-1.5 rounded-xl border-2 drop-shadow-md flex items-center gap-2">
+                        <span class="bg-black/40 text-white rounded-full w-7 h-7 md:w-8 md:h-8 flex items-center justify-center text-lg md:text-xl">${['👉','🤟','✌️'][i]}</span> ${c}
+                    </span>`),
+                    correct: correctIdx
+                };
+            }
+        }
+
+        function prepareNextQuestion() {
+            state.questionCount++;
+            state.currentQuestion = genQuestion();
+            
+            ui.game.qBox.classList.remove('animate-shake');
+            
+            ui.game.qText.innerHTML = state.currentQuestion.qHtml;
+            ui.game.qChoices.innerHTML = state.currentQuestion.choicesHtml.join('');
+            ui.game.qChoices.classList.add('opacity-0'); 
+
+            if (state.questionCount === 1) {
+                // ข้อแรก: รอกำมือ
+                state.gamePhase = 'WAIT_READY';
+                ui.game.qStatus.innerHTML = '<i class="fa-solid fa-hand-fist mr-2"></i> กำมือทั้ง 2 คน เพื่อเริ่มข้อแรก!';
+                ui.game.qStatus.className = "text-lg md:text-xl font-bold text-yellow-300 mb-1 drop-shadow-lg";
+            } else {
+                // ข้อถัดไป: นับถอยหลังอัตโนมัติ
+                state.gamePhase = 'WAIT_READY';
+                startCountdown();
+            }
+        }
+
+        let countdownTimer = 0;
+        function startCountdown() {
+            if(state.gamePhase !== 'WAIT_READY') return;
+            state.gamePhase = 'COUNTDOWN';
+            countdownTimer = 3;
+            
+            ui.game.qStatus.className = "text-2xl md:text-3xl font-black text-red-400 mb-1 drop-shadow-[0_0_15px_rgba(255,0,0,0.9)] animate-pop";
+            ui.game.qBox.classList.add('animate-shake');
+
+            let intv = setInterval(() => {
+                if(countdownTimer > 0) {
+                    playSynthSound('tick');
+                    ui.game.qStatus.innerHTML = `<i class="fa-solid fa-clock mr-2"></i> เตรียมตัว... ${countdownTimer}`;
+                    countdownTimer--;
+                } else {
+                    clearInterval(intv);
+                    playSynthSound('pop');
+                    ui.game.qBox.classList.remove('animate-shake');
+                    ui.game.qStatus.innerHTML = '<i class="fa-solid fa-bolt mr-2 text-yellow-300"></i> ตอบเลย!';
+                    ui.game.qStatus.className = "text-xl md:text-2xl font-black text-emerald-300 mb-1 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pop";
+                    ui.game.qChoices.classList.remove('opacity-0');
+                    state.gamePhase = 'PLAYING';
+                }
+            }, 1000);
+        }
+
+        function checkAnswer(playerNum, fingers) {
+            if(state.gamePhase !== 'PLAYING') return;
+            
+            const now = Date.now();
+            if(playerNum === 1 && now < state.p1WrongUntil) return;
+            if(playerNum === 2 && now < state.p2WrongUntil) return;
+
+            if(fingers >= 1 && fingers <= 3) {
+                if(fingers === state.currentQuestion.correct) {
+                    // Correct!
+                    state.gamePhase = 'RESULT';
+                    playSynthSound('correct');
+                    
+                    if(playerNum === 1) {
+                        state.scoreP1++;
+                        showFeedback('Player ตอบถูก! 🎉', 'text-cyan-300', 'border-cyan-400', 'bg-cyan-900/90');
+                    } else {
+                        state.scoreP2++;
+                        showFeedback('Zombies ตอบถูก! 🧟', 'text-orange-400', 'border-orange-500', 'bg-orange-900/90');
+                    }
+                    
+                    updateScoreUI();
+                    
+                    if(state.scoreP1 >= state.targetScore || state.scoreP2 >= state.targetScore) {
+                        setTimeout(() => triggerEndGame(), 2500);
+                    } else {
+                        setTimeout(() => prepareNextQuestion(), 3000);
+                    }
+
+                } else {
+                    // Wrong!
+                    playSynthSound('wrong');
+                    if(playerNum === 1) state.p1WrongUntil = now + 3000;
+                    if(playerNum === 2) state.p2WrongUntil = now + 3000;
+                }
+            }
+        }
+
+        function showFeedback(text, textColor, borderColor, bgColor) {
+            ui.game.fbText.textContent = text;
+            ui.game.fbText.className = `text-5xl md:text-7xl font-black drop-shadow-[0_15px_25px_rgba(0,0,0,1)] glass-card px-16 py-8 border-4 ${textColor} ${borderColor} ${bgColor} text-center leading-tight`;
+            ui.game.fbOverlay.classList.remove('opacity-0');
+            setTimeout(() => {
+                ui.game.fbOverlay.classList.add('opacity-0');
+            }, 2500);
+        }
+
+        function updateScoreUI() {
+            let p1Pct = (state.scoreP1 / state.targetScore) * 100;
+            let p2Pct = (state.scoreP2 / state.targetScore) * 100;
+            
+            ui.game.p1Prog.style.width = `${p1Pct}%`;
+            ui.game.p1IconCont.style.left = `${p1Pct}%`;
+            ui.game.p1Score.textContent = `${state.scoreP1} / ${state.targetScore}`;
+            
+            ui.game.p2Prog.style.width = `${p2Pct}%`;
+            ui.game.p2IconCont.style.right = `${p2Pct}%`;
+            ui.game.p2Score.textContent = `${state.scoreP2} / ${state.targetScore}`;
+        }
+
+        function triggerEndGame() {
+            bgmGame.pause();
+            ui.screens.game.classList.add('hidden');
+            ui.screens.end.classList.remove('hidden');
+            ui.videos.end.muted = false; // ensure sound plays
+            ui.videos.end.play().catch(e=>console.log(e));
+            
+            const winnerText = document.getElementById('winner-text');
+            if(state.scoreP1 >= state.targetScore) {
+                winnerText.innerHTML = "The winner is <br/> Player! 🏆";
+                winnerText.className = "text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-200 to-cyan-500 drop-shadow-[0_10px_10px_rgba(0,0,0,1)] mb-6 leading-tight";
+            } else {
+                winnerText.innerHTML = "The winner is <br/> Zombies! 🧟";
+                winnerText.className = "text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-yellow-300 to-red-500 drop-shadow-[0_10px_10px_rgba(0,0,0,1)] mb-6 leading-tight";
+            }
+        }
+
+        // --- MEDIAPIPE AR & CAMERA ---
+        const videoElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('ar-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        let cameraInstance = null;
+        let useFrontCam = true;
+        let handsObj = null;
+        let localStream = null;
+        let animFrameId = null;
+
+        async function startCamera() {
+            if (cameraInstance && typeof cameraInstance.stop === 'function') {
+                try { cameraInstance.stop(); } catch(e){}
+            }
+            
+            // Stop any existing native media track stream
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (animFrameId) {
+                cancelAnimationFrame(animFrameId);
+                animFrameId = null;
+            }
+
+            // Check if MediaPipe CameraUtils class is available globally
+            if (typeof Camera !== 'undefined') {
+                try {
+                    cameraInstance = new Camera(videoElement, {
+                        onFrame: async () => {
+                            if (handsObj && videoElement) {
+                                await handsObj.send({ image: videoElement });
+                            }
+                        },
+                        width: 1280,
+                        height: 720,
+                        facingMode: useFrontCam ? 'user' : 'environment'
+                    });
+                    await cameraInstance.start();
+                    return;
+                } catch(e) {
+                    console.warn("MediaPipe Camera class failed, falling back to getUserMedia:", e);
+                }
+            }
+
+            // Fallback: Standard HTML5 getUserMedia stream processing
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: useFrontCam ? 'user' : 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = localStream;
+                await videoElement.play();
+
+                // Custom frame processing loop using requestAnimationFrame
+                const processFrame = async () => {
+                    if (handsObj && videoElement && videoElement.readyState >= 2) {
+                        try {
+                            await handsObj.send({ image: videoElement });
+                        } catch(err) {
+                            console.error("Frame processing error:", err);
+                        }
+                    }
+                    animFrameId = requestAnimationFrame(processFrame);
+                };
+                processFrame();
+            } catch (err) {
+                console.error("Native Camera Access Error:", err);
+            }
+        }
+
+        function initMediaPipe() {
+            try {
+                handsObj = new Hands({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+                });
+                handsObj.setOptions({
+                    maxNumHands: 2,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.7,
+                    minTrackingConfidence: 0.7
+                });
+                handsObj.onResults(onHandsResult);
+                startCamera();
+            } catch (err) {
+                console.error("MediaPipe initialization error:", err);
+            }
+        }
+
+        function toggleCamera() {
+            useFrontCam = !useFrontCam;
+            startCamera();
+        }
+
+        // Count fingers & gestures matching game rules
+        function getFingerCount(landmarks) {
+            const isIndexUp = landmarks[8].y < landmarks[6].y;
+            const isMiddleUp = landmarks[12].y < landmarks[10].y;
+            const isRingUp = landmarks[16].y < landmarks[14].y;
+            const isPinkyUp = landmarks[20].y < landmarks[18].y;
+
+            const thumbTip = landmarks[4];
+            const indexMcp = landmarks[5];
+            const isThumbUp = Math.hypot(thumbTip.x - indexMcp.x, thumbTip.y - indexMcp.y) > 0.12;
+
+            let count = 0;
+            if (isIndexUp) count++;
+            if (isMiddleUp) count++;
+            if (isRingUp) count++;
+            if (isPinkyUp) count++;
+            if (isThumbUp) count++;
+
+            // Gesture recognition matching choices
+            // ✌️ Victory (Index + Middle up) -> Choice 3
+            if (isIndexUp && isMiddleUp && !isRingUp && !isPinkyUp) return 3;
+            // 🤟 Love (Thumb + Index + Pinky up) -> Choice 2
+            if (isThumbUp && isIndexUp && isPinkyUp && !isMiddleUp && !isRingUp) return 2;
+            // 👉 Pointing/Gun (Index up) -> Choice 1
+            if (isIndexUp && !isMiddleUp && !isRingUp && !isPinkyUp) return 1;
+
+            if (count === 1) return 1;
+            if (count === 2) return 3;
+            if (count === 3) return 2;
+
+            return count; // 0 = fist
+        }
+
+        function onHandsResult(results) {
+            if(canvasElement.width !== canvasElement.clientWidth) {
+                canvasElement.width = canvasElement.clientWidth;
+                canvasElement.height = canvasElement.clientHeight;
+            }
+            
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            // Draw Video Mirrored
+            canvasCtx.translate(canvasElement.width, 0);
+            canvasCtx.scale(-1, 1);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            let p1Ready = false;
+            let p2Ready = false;
+            let p1Fingers = -1;
+            let p2Fingers = -1;
+            
+            const midX = canvasElement.width / 2;
+            const now = Date.now();
+
+            if (results.multiHandLandmarks) {
+                for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+                    const landmarks = results.multiHandLandmarks[i];
+                    
+                    // Wrist position in MIRRORED coordinates
+                    const rawWristX = landmarks[0].x * canvasElement.width;
+                    const wristY = landmarks[0].y * canvasElement.height;
+                    
+                    // Visual Left (P1) -> rawWristX > midX
+                    // Visual Right (P2) -> rawWristX <= midX
+                    let isPlayer1 = rawWristX > midX;
+                    let playerText = isPlayer1 ? "Player" : "Zombies";
+                    let playerColor = isPlayer1 ? "#22d3ee" : "#f97316"; // cyan-400 / orange-500
+                    
+                    // Use MediaPipe drawConnectors and drawLandmarks safely now
+                    if (typeof drawConnectors !== 'undefined' && typeof HAND_CONNECTIONS !== 'undefined') {
+                        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: playerColor, lineWidth: 4});
+                    }
+                    if (typeof drawLandmarks !== 'undefined') {
+                        drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 2, radius: 4});
+                    } else {
+                        canvasCtx.fillStyle = '#ffffff';
+                        for (const lm of landmarks) {
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(lm.x * canvasElement.width, lm.y * canvasElement.height, 4, 0, 2 * Math.PI);
+                            canvasCtx.fill();
+                        }
+                    }
+                    
+                    let fingers = getFingerCount(landmarks);
+                    
+                    // Flip back text so it's readable
+                    canvasCtx.save();
+                    canvasCtx.translate(rawWristX, wristY - 50);
+                    canvasCtx.scale(-1, 1); // un-mirror text
+                    
+                    let isWrong = (isPlayer1 && now < state.p1WrongUntil) || (!isPlayer1 && now < state.p2WrongUntil);
+                    
+                    if(isWrong) {
+                        canvasCtx.font = "60px Arial";
+                        canvasCtx.textAlign = "center";
+                        canvasCtx.fillText("😭", 0, 0);
+                    } else {
+                        // Badge background with canvas fallback
+                        canvasCtx.fillStyle = 'rgba(0,0,0,0.7)';
+                        canvasCtx.beginPath();
+                        if (canvasCtx.roundRect) {
+                            canvasCtx.roundRect(-80, -35, 160, 45, 12);
+                        } else {
+                            canvasCtx.rect(-80, -35, 160, 45);
+                        }
+                        canvasCtx.fill();
+                        
+                        // Badge Border
+                        canvasCtx.strokeStyle = playerColor;
+                        canvasCtx.lineWidth = 2;
+                        canvasCtx.stroke();
+
+                        canvasCtx.fillStyle = playerColor;
+                        canvasCtx.font = "bold 20px Mali, sans-serif";
+                        canvasCtx.textAlign = "center";
+                        let displayVal = fingers === 0 ? "กำมือ" : `${fingers} นิ้ว`;
+                        canvasCtx.fillText(`${playerText} : ${displayVal}`, 0, -5);
+                    }
+                    canvasCtx.restore();
+
+                    // Assign logic
+                    if(isPlayer1 && !isWrong) { 
+                        p1Fingers = fingers; 
+                        if(fingers===0) p1Ready = true; // 0 fingers = fist
+                    }
+                    if(!isPlayer1 && !isWrong) { 
+                        p2Fingers = fingers; 
+                        if(fingers===0) p2Ready = true; 
+                    }
+                }
+            }
+            
+            canvasCtx.restore();
+
+            // Logic Handling
+            if(state.gamePhase === 'WAIT_READY') {
+                if(p1Ready && p2Ready) startCountdown();
+            } else if(state.gamePhase === 'PLAYING') {
+                if(p1Fingers >= 1 && p1Fingers <= 3) checkAnswer(1, p1Fingers);
+                if(p2Fingers >= 1 && p2Fingers <= 3) checkAnswer(2, p2Fingers);
+            }
+        }
+    </script>
+</body>
+</html>
